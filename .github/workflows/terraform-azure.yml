@@ -59,6 +59,29 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     
+    - name: Setup Terraform Backend
+      run: |
+        # Create resource group for Terraform state if it doesn't exist
+        az group create --name terraform-state-rg --location eastus --output none || true
+        
+        # Create storage account for Terraform state if it doesn't exist
+        az storage account create \
+          --name tfstateapislabs \
+          --resource-group terraform-state-rg \
+          --location eastus \
+          --sku Standard_LRS \
+          --encryption-services blob \
+          --output none || true
+        
+        # Create container for Terraform state if it doesn't exist
+        az storage container create \
+          --name tfstate \
+          --account-name tfstateapislabs \
+          --auth-mode login \
+          --output none || true
+        
+        echo "✅ Terraform backend storage configured"
+    
     - name: Terraform Format Check
       id: fmt
       run: terraform fmt -check
