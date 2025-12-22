@@ -1,7 +1,11 @@
 name: 'Terraform Azure Infrastructure'
 
 on:
-  # Solo ejecuta en Pull Requests (valida pero no despliega)
+  # Ejecuta automáticamente en cada push a main (despliega)
+  push:
+    branches:
+      - main
+  # Valida en Pull Requests (no despliega)
   pull_request:
     branches:
       - main
@@ -79,7 +83,7 @@ jobs:
     
     - name: Terraform Plan
       id: plan
-      if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan'
+      if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan' || github.event_name == 'push'
       run: terraform plan -var-file="${{ steps.tfvars.outputs.file }}" -no-color -input=false -out=tfplan
       continue-on-error: true
       env:
@@ -122,8 +126,20 @@ jobs:
       if: steps.plan.outcome == 'failure'
       run: exit 1
     
+    - name: Import existing resources (if needed)
+      if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      run: |
+        # Importar Resource Group si existe
+        terraform import -var-file="${{ steps.tfvars.outputs.file }}" azurerm_resource_group.main /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/apis-labs-dev-rg || true
+      continue-on-error: true
+      env:
+        ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+        ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+        ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+    
     - name: Terraform Apply
-      if: github.event.inputs.action == 'apply'
+      if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: terraform apply -var-file="${{ steps.tfvars.outputs.file }}" -auto-approve -input=false
       env:
         ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
@@ -141,5 +157,5 @@ jobs:
         ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
     
     - name: Terraform Output
-      if: github.event.inputs.action == 'apply'
+      if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: terraform output
