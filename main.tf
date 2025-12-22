@@ -130,42 +130,39 @@ resource "azurerm_storage_account" "functions" {
   tags                     = var.tags
 }
 
-# App Service Plan para Azure Functions (Consumption)
-resource "azurerm_service_plan" "functions" {
-  name                = "${var.prefix}-func-plan"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  os_type             = "Windows"
-  sku_name            = "Y1"
-  tags                = var.tags
-}
-
-# Azure Function App
-resource "azurerm_windows_function_app" "main" {
+# Azure Function App - Flex Consumption (Serverless sin App Service Plan)
+# Modelo más moderno que no requiere cuota de Dynamic VMs
+resource "azurerm_linux_function_app" "main" {
   name                = "${var.prefix}-func-${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   
   storage_account_name       = azurerm_storage_account.functions.name
   storage_account_access_key = azurerm_storage_account.functions.primary_access_key
-  service_plan_id            = azurerm_service_plan.functions.id
+  
+  # Flex Consumption no requiere service_plan_id
+  # Usa un modelo de pricing completamente serverless
   
   site_config {
     application_stack {
-      dotnet_version = "v8.0"
+      dotnet_version              = "8.0"
+      use_dotnet_isolated_runtime = true
     }
     cors {
       allowed_origins = ["*"]
     }
+    
+    # Configuración específica para Flex Consumption
+    always_on = false
   }
   
   app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"       = "dotnet-isolated"
-    "FUNCTIONS_EXTENSION_VERSION"    = "~4"
-    "CosmosDbConnectionString"       = azurerm_cosmosdb_account.main.primary_sql_connection_string
-    "CosmosDbDatabaseName"           = azurerm_cosmosdb_sql_database.main.name
-    "CosmosDbContainerName"          = azurerm_cosmosdb_sql_container.main.name
-    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.main.instrumentation_key
+    "FUNCTIONS_WORKER_RUNTIME"          = "dotnet-isolated"
+    "FUNCTIONS_EXTENSION_VERSION"       = "~4"
+    "CosmosDbConnectionString"          = azurerm_cosmosdb_account.main.primary_sql_connection_string
+    "CosmosDbDatabaseName"              = azurerm_cosmosdb_sql_database.main.name
+    "CosmosDbContainerName"             = azurerm_cosmosdb_sql_container.main.name
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
   }
   
   tags = var.tags

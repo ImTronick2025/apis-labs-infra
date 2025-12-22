@@ -47,12 +47,12 @@ output "cosmosdb_connection_string" {
 
 output "function_app_name" {
   description = "Nombre de la Azure Function App"
-  value       = azurerm_windows_function_app.main.name
+  value       = azurerm_linux_function_app.main.name
 }
 
 output "function_app_url" {
   description = "URL de la Function App"
-  value       = azurerm_windows_function_app.main.default_hostname
+  value       = azurerm_linux_function_app.main.default_hostname
 }
 
 output "storage_account_name" {
