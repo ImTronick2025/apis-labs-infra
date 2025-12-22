@@ -178,15 +178,22 @@ jobs:
       run: |
         echo "🔍 Checking for existing resources not in Terraform state..."
         
-        # Try to import the resource group if it exists
+        # Check if resource group exists in Azure
         if az group exists --name apis-labs-dev-rg | grep -q "true"; then
-          echo "📦 Resource group apis-labs-dev-rg exists, attempting import..."
-          terraform import -var-file="${{ steps.tfvars.outputs.file }}" \
-            azurerm_resource_group.main \
-            /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/apis-labs-dev-rg \
-            || echo "⚠️ Import failed or resource already in state, continuing..."
+          echo "📦 Resource group apis-labs-dev-rg exists in Azure"
+          
+          # Check if it's in Terraform state
+          if ! terraform state show azurerm_resource_group.main > /dev/null 2>&1; then
+            echo "⚠️ Resource group NOT in Terraform state, importing..."
+            terraform import -var-file="${{ steps.tfvars.outputs.file }}" \
+              azurerm_resource_group.main \
+              /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/apis-labs-dev-rg
+            echo "✅ Resource group imported successfully"
+          else
+            echo "✅ Resource group already in Terraform state, skipping import"
+          fi
         else
-          echo "✅ No existing resource group to import"
+          echo "✅ No existing resource group found in Azure"
         fi
       continue-on-error: true
       env:
