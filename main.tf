@@ -110,7 +110,7 @@ resource "azurerm_cosmosdb_sql_container" "main" {
   resource_group_name = azurerm_cosmosdb_account.main.resource_group_name
   account_name        = azurerm_cosmosdb_account.main.name
   database_name       = azurerm_cosmosdb_sql_database.main.name
-  partition_key_path  = "/id"
+  partition_key_paths = ["/id"]
 }
 
 # Random suffix para nombres únicos globales
@@ -130,18 +130,25 @@ resource "azurerm_storage_account" "functions" {
   tags                     = var.tags
 }
 
-# Azure Function App - Flex Consumption (Serverless sin App Service Plan)
-# Modelo más moderno que no requiere cuota de Dynamic VMs
+# Azure Service Plan - Consumption Y1 (sin cuota, pago por uso)
+resource "azurerm_service_plan" "functions" {
+  name                = "${var.prefix}-func-plan"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  os_type             = "Linux"
+  sku_name            = "Y1"  # Consumption plan - pago por uso, sin cuota requerida
+  tags                = var.tags
+}
+
+# Azure Function App - Linux con .NET 8 Isolated
 resource "azurerm_linux_function_app" "main" {
   name                = "${var.prefix}-func-${random_string.suffix.result}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+  service_plan_id     = azurerm_service_plan.functions.id
   
   storage_account_name       = azurerm_storage_account.functions.name
   storage_account_access_key = azurerm_storage_account.functions.primary_access_key
-  
-  # Flex Consumption no requiere service_plan_id
-  # Usa un modelo de pricing completamente serverless
   
   site_config {
     application_stack {
@@ -151,9 +158,6 @@ resource "azurerm_linux_function_app" "main" {
     cors {
       allowed_origins = ["*"]
     }
-    
-    # Configuración específica para Flex Consumption
-    always_on = false
   }
   
   app_settings = {
