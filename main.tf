@@ -120,59 +120,7 @@ resource "random_string" "suffix" {
   upper   = false
 }
 
-# Storage Account para Azure Functions (requerido)
-resource "azurerm_storage_account" "functions" {
-  name                     = "${var.prefix}funcst${random_string.suffix.result}"
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  tags                     = var.tags
-}
-
-# Azure Service Plan - Consumption Y1 (sin cuota, pago por uso)
-resource "azurerm_service_plan" "functions" {
-  name                = "${var.prefix}-func-plan"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  os_type             = "Linux"
-  sku_name            = "Y1"  # Consumption plan - pago por uso, sin cuota requerida
-  tags                = var.tags
-}
-
-# Azure Function App - Linux con .NET 8 Isolated
-resource "azurerm_linux_function_app" "main" {
-  name                = "${var.prefix}-func-${random_string.suffix.result}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  service_plan_id     = azurerm_service_plan.functions.id
-  
-  storage_account_name       = azurerm_storage_account.functions.name
-  storage_account_access_key = azurerm_storage_account.functions.primary_access_key
-  
-  site_config {
-    application_stack {
-      dotnet_version              = "8.0"
-      use_dotnet_isolated_runtime = true
-    }
-    cors {
-      allowed_origins = ["*"]
-    }
-  }
-  
-  app_settings = {
-    "FUNCTIONS_WORKER_RUNTIME"          = "dotnet-isolated"
-    "FUNCTIONS_EXTENSION_VERSION"       = "~4"
-    "CosmosDbConnectionString"          = azurerm_cosmosdb_account.main.primary_sql_connection_string
-    "CosmosDbDatabaseName"              = azurerm_cosmosdb_sql_database.main.name
-    "CosmosDbContainerName"             = azurerm_cosmosdb_sql_container.main.name
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-  }
-  
-  tags = var.tags
-}
-
-# Application Insights para monitoring
+# Application Insights para monitoring (para futuro uso con Functions u otros servicios)
 resource "azurerm_application_insights" "main" {
   name                = "${var.prefix}-appinsights"
   location            = azurerm_resource_group.main.location

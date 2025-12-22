@@ -45,21 +45,6 @@ output "cosmosdb_connection_string" {
   sensitive   = true
 }
 
-output "function_app_name" {
-  description = "Nombre de la Azure Function App"
-  value       = azurerm_linux_function_app.main.name
-}
-
-output "function_app_url" {
-  description = "URL de la Function App"
-  value       = azurerm_linux_function_app.main.default_hostname
-}
-
-output "storage_account_name" {
-  description = "Nombre del Storage Account para Functions"
-  value       = azurerm_storage_account.functions.name
-}
-
 output "application_insights_key" {
   description = "Instrumentation Key de Application Insights"
   value       = azurerm_application_insights.main.instrumentation_key
