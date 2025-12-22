@@ -63,40 +63,43 @@ jobs:
       run: |
         echo "🔧 Setting up Terraform backend storage..."
         
-        # Create resource group for Terraform state
-        echo "Creating resource group terraform-state-rg..."
-        az group create --name terraform-state-rg --location eastus --output table
+        STORAGE_ACCOUNT_NAME="tfstateimtronick2025"
         
-        # Create storage account for Terraform state
-        echo "Creating storage account tfstateapislabs..."
+        # Create resource group for Terraform state (idempotent)
+        echo "Creating resource group terraform-state-rg..."
+        az group create --name terraform-state-rg --location eastus --output table || true
+        
+        # Create storage account for Terraform state (idempotent)
+        echo "Creating storage account $STORAGE_ACCOUNT_NAME..."
         az storage account create \
-          --name tfstateapislabs \
+          --name "$STORAGE_ACCOUNT_NAME" \
           --resource-group terraform-state-rg \
           --location eastus \
           --sku Standard_LRS \
           --encryption-services blob \
           --allow-blob-public-access false \
-          --output table
+          --output table || echo "Storage account already exists, continuing..."
         
         # Wait for storage account to be ready
         echo "Waiting for storage account to be ready..."
-        sleep 10
+        sleep 5
         
         # Get storage account key
         ACCOUNT_KEY=$(az storage account keys list \
           --resource-group terraform-state-rg \
-          --account-name tfstateapislabs \
+          --account-name "$STORAGE_ACCOUNT_NAME" \
           --query '[0].value' -o tsv)
         
-        # Create container for Terraform state
+        # Create container for Terraform state (idempotent)
         echo "Creating container tfstate..."
         az storage container create \
           --name tfstate \
-          --account-name tfstateapislabs \
+          --account-name "$STORAGE_ACCOUNT_NAME" \
           --account-key "$ACCOUNT_KEY" \
-          --output table
+          --output table || echo "Container already exists, continuing..."
         
         echo "✅ Terraform backend storage configured successfully!"
+        echo "Storage Account: $STORAGE_ACCOUNT_NAME"
     
     - name: Terraform Format Check
       id: fmt
