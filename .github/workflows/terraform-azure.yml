@@ -173,29 +173,27 @@ jobs:
       if: steps.plan.outcome == 'failure'
       run: exit 1
     
-    - name: Clean up existing resources (if state mismatch)
+    - name: Import existing resources (if not in state)
       if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: |
-        echo "🧹 Checking for orphaned resources..."
-        # Delete the resource group if it exists and is not in state
+        echo "🔍 Checking for existing resources not in Terraform state..."
+        
+        # Try to import the resource group if it exists
         if az group exists --name apis-labs-dev-rg | grep -q "true"; then
-          echo "⚠️ Resource group apis-labs-dev-rg exists but may not be in Terraform state"
-          echo "Deleting orphaned resource group to allow clean deployment..."
-          az group delete --name apis-labs-dev-rg --yes --no-wait || true
-          
-          echo "Waiting for resource group deletion..."
-          for i in {1..30}; do
-            if ! az group exists --name apis-labs-dev-rg | grep -q "true"; then
-              echo "✅ Resource group deleted successfully"
-              break
-            fi
-            echo "Still waiting... ($i/30)"
-            sleep 10
-          done
+          echo "📦 Resource group apis-labs-dev-rg exists, attempting import..."
+          terraform import -var-file="${{ steps.tfvars.outputs.file }}" \
+            azurerm_resource_group.main \
+            /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/apis-labs-dev-rg \
+            || echo "⚠️ Import failed or resource already in state, continuing..."
         else
-          echo "✅ No orphaned resources found"
+          echo "✅ No existing resource group to import"
         fi
       continue-on-error: true
+      env:
+        ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+        ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+        ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
     
     - name: Terraform Apply
       if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
