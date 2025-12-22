@@ -173,10 +173,28 @@ jobs:
       if: steps.plan.outcome == 'failure'
       run: exit 1
     
-    - name: Import existing resources (if needed)
+    - name: Clean up existing resources (if state mismatch)
       if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: |
-        echo "Skipping import - backend will handle state management"
+        echo "🧹 Checking for orphaned resources..."
+        # Delete the resource group if it exists and is not in state
+        if az group exists --name apis-labs-dev-rg | grep -q "true"; then
+          echo "⚠️ Resource group apis-labs-dev-rg exists but may not be in Terraform state"
+          echo "Deleting orphaned resource group to allow clean deployment..."
+          az group delete --name apis-labs-dev-rg --yes --no-wait || true
+          
+          echo "Waiting for resource group deletion..."
+          for i in {1..30}; do
+            if ! az group exists --name apis-labs-dev-rg | grep -q "true"; then
+              echo "✅ Resource group deleted successfully"
+              break
+            fi
+            echo "Still waiting... ($i/30)"
+            sleep 10
+          done
+        else
+          echo "✅ No orphaned resources found"
+        fi
       continue-on-error: true
     
     - name: Terraform Apply
