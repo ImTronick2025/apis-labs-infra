@@ -154,7 +154,7 @@ apis-labs-infra/
 |---------|------|----------|-----------|
 | Resource Group | `azurerm_resource_group` | - | Contenedor de recursos |
 | Virtual Network | `azurerm_virtual_network` | - | Red privada (10.0.0.0/16) |
-| API Management | `azurerm_api_management` | Developer_1 | Gateway y gestión de APIs |
+| API Management | `azurerm_api_management` | Consumption ⚡ | Gateway serverless pay-per-use |
 | Cosmos DB | `azurerm_cosmosdb_account` | Serverless | Base de datos NoSQL |
 | Function App | `azurerm_windows_function_app` | Consumption (Y1) | Backend .NET 8.0 |
 | Storage Account | `azurerm_storage_account` | Standard LRS | Para Azure Functions |
@@ -163,15 +163,16 @@ apis-labs-infra/
 ## 💰 Estimación de Costos
 
 **Ambiente Dev (mensual):**
-- API Management Developer: ~$50 USD/mes
+- API Management Consumption: ~$0.035 USD/10K llamadas + $0.007/GB (pay-per-use) ⚡
 - Cosmos DB Serverless: ~$0.25 USD/GB + $0.28 USD/millón RUs
 - Function App Consumption: Primeros 1M ejecuciones gratis
 - Storage Account: ~$0.02 USD/GB
 - Application Insights: Primeros 5GB gratis
 
-**Total estimado**: ~$55-60 USD/mes (uso moderado)
+**Total estimado**: ~$5-15 USD/mes (uso bajo a moderado) 💰
 
-> 💡 Para reducir costos en lab, destruye recursos cuando no uses: `.\deploy.ps1 -Action destroy`
+> 💡 **Ahorro significativo**: Consumption SKU es ~90% más barato que Developer SKU
+> 💡 Solo pagas por lo que usas - ideal para labs y desarrollo
 
 ## 🔧 Comandos Útiles
 

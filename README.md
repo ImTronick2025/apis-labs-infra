@@ -6,7 +6,7 @@ Este repositorio contiene la infraestructura como código (IaC) para el laborato
 
 - **Resource Group**: `apis-labs-rg` (configurable)
 - **Virtual Network**: Con dos subnets (APIM y Cosmos DB)
-- **Azure API Management**: SKU Developer para gestión de APIs
+- **Azure API Management**: SKU Consumption (serverless, pay-per-use) ⚡
 - **Cosmos DB**: Modo serverless para almacenamiento NoSQL
 - **Azure Functions**: Function App .NET 8.0 con plan Consumption
 - **Storage Account**: Para Azure Functions

@@ -58,20 +58,14 @@ resource "azurerm_subnet" "cosmosdb" {
   address_prefixes     = ["10.0.2.0/24"]
 }
 
-# Azure API Management (SKU Developer)
+# Azure API Management (SKU Consumption - Serverless)
 resource "azurerm_api_management" "main" {
   name                = "${var.prefix}-apim"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   publisher_name      = var.apim_publisher_name
   publisher_email     = var.apim_publisher_email
-  sku_name            = "Developer_1"
-  
-  # Configuración de red (comentada por defecto, requiere SKU Premium/Developer)
-  # virtual_network_type = "Internal"
-  # virtual_network_configuration {
-  #   subnet_id = azurerm_subnet.apim.id
-  # }
+  sku_name            = "Consumption_0"
   
   tags = var.tags
 }
