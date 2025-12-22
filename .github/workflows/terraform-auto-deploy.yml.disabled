@@ -1,0 +1,60 @@
+name: 'Terraform Auto Deploy (DISABLED)'
+
+# ⚠️ ESTE WORKFLOW ESTÁ DESHABILITADO POR DEFECTO
+# Para habilitarlo, renombra este archivo a: terraform-auto-deploy.yml
+# Y descomenta la sección 'on:' a continuación
+
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - '**.tf'
+#       - '**.tfvars'
+#       - '.github/workflows/terraform-*.yml'
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DEPLOY" to confirm auto-deployment'
+        required: true
+
+env:
+  TF_VERSION: '1.6.0'
+
+jobs:
+  auto-deploy:
+    name: 'Auto Deploy on Push'
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DEPLOY' || github.event_name == 'push'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Terraform Init
+      run: terraform init
+    
+    - name: Terraform Apply
+      run: terraform apply -var-file="dev.tfvars" -auto-approve
+      env:
+        ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+        ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+        ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+    
+    - name: Post Deployment
+      run: |
+        echo "🎉 Deployment completed!"
+        terraform output

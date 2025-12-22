@@ -1,0 +1,17 @@
+# terraform.tfvars
+# Archivo de variables personalizadas (opcional)
+# Copia este archivo a terraform.tfvars y personaliza según necesites
+
+# subscription_id       = "0ec51f00-9547-405f-9a39-25fb1b9f42e5"
+# resource_group_name   = "apis-labs-rg"
+# location              = "East US"
+# prefix                = "apislabs"
+# apim_publisher_name   = "APIs Labs Organization"
+# apim_publisher_email  = "tu-email@example.com"
+
+# tags = {
+#   Environment = "Lab"
+#   Project     = "APIs-DevOps-Lab"
+#   ManagedBy   = "Terraform"
+#   Owner       = "ImTronick2025"
+# }

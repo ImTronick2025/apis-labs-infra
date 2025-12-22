@@ -1,0 +1,265 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+  
+  # Backend remoto opcional para almacenar el estado de Terraform en Azure Storage
+  # Descomenta y configura después de crear el Storage Account manualmente
+  # backend "azurerm" {
+  #   resource_group_name  = "terraform-state-rg"
+  #   storage_account_name = "tfstateapislab"
+  #   container_name       = "tfstate"
+  #   key                  = "apis-labs.terraform.tfstate"
+  # }
+}
+
+provider "azurerm" {
+  features {}
+  subscription_id = var.subscription_id
+}
+
+# Resource Group
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = var.tags
+}
+
+# Virtual Network con dos subnets
+resource "azurerm_virtual_network" "main" {
+  name                = "${var.prefix}-vnet"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  address_space       = ["10.0.0.0/16"]
+  tags                = var.tags
+}
+
+# Subnet para API Management
+resource "azurerm_subnet" "apim" {
+  name                 = "apim-subnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+# Subnet para Cosmos DB (private endpoint)
+resource "azurerm_subnet" "cosmosdb" {
+  name                 = "cosmosdb-subnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.2.0/24"]
+}
+
+# Azure API Management (SKU Developer)
+resource "azurerm_api_management" "main" {
+  name                = "${var.prefix}-apim"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  publisher_name      = var.apim_publisher_name
+  publisher_email     = var.apim_publisher_email
+  sku_name            = "Developer_1"
+  
+  # Configuración de red (comentada por defecto, requiere SKU Premium/Developer)
+  # virtual_network_type = "Internal"
+  # virtual_network_configuration {
+  #   subnet_id = azurerm_subnet.apim.id
+  # }
+  
+  tags = var.tags
+}
+
+# Cosmos DB Account (Serverless)
+resource "azurerm_cosmosdb_account" "main" {
+  name                = "${var.prefix}-cosmos-${random_string.suffix.result}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  offer_type          = "Standard"
+  kind                = "GlobalDocumentDB"
+  
+  # Serverless capacity mode
+  capabilities {
+    name = "EnableServerless"
+  }
+  
+  consistency_policy {
+    consistency_level       = "Session"
+    max_interval_in_seconds = 5
+    max_staleness_prefix    = 100
+  }
+  
+  geo_location {
+    location          = azurerm_resource_group.main.location
+    failover_priority = 0
+  }
+  
+  tags = var.tags
+}
+
+# Cosmos DB SQL Database
+resource "azurerm_cosmosdb_sql_database" "main" {
+  name                = "apis-labs-db"
+  resource_group_name = azurerm_cosmosdb_account.main.resource_group_name
+  account_name        = azurerm_cosmosdb_account.main.name
+}
+
+# Cosmos DB SQL Container
+resource "azurerm_cosmosdb_sql_container" "main" {
+  name                = "items"
+  resource_group_name = azurerm_cosmosdb_account.main.resource_group_name
+  account_name        = azurerm_cosmosdb_account.main.name
+  database_name       = azurerm_cosmosdb_sql_database.main.name
+  partition_key_path  = "/id"
+}
+
+# Random suffix para nombres únicos globales
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
+# Storage Account para Azure Functions (requerido)
+resource "azurerm_storage_account" "functions" {
+  name                     = "${var.prefix}funcst${random_string.suffix.result}"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  tags                     = var.tags
+}
+
+# App Service Plan para Azure Functions (Consumption)
+resource "azurerm_service_plan" "functions" {
+  name                = "${var.prefix}-func-plan"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  os_type             = "Windows"
+  sku_name            = "Y1"
+  tags                = var.tags
+}
+
+# Azure Function App
+resource "azurerm_windows_function_app" "main" {
+  name                = "${var.prefix}-func-${random_string.suffix.result}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  
+  storage_account_name       = azurerm_storage_account.functions.name
+  storage_account_access_key = azurerm_storage_account.functions.primary_access_key
+  service_plan_id            = azurerm_service_plan.functions.id
+  
+  site_config {
+    application_stack {
+      dotnet_version = "v8.0"
+    }
+    cors {
+      allowed_origins = ["*"]
+    }
+  }
+  
+  app_settings = {
+    "FUNCTIONS_WORKER_RUNTIME"       = "dotnet-isolated"
+    "FUNCTIONS_EXTENSION_VERSION"    = "~4"
+    "CosmosDbConnectionString"       = azurerm_cosmosdb_account.main.primary_sql_connection_string
+    "CosmosDbDatabaseName"           = azurerm_cosmosdb_sql_database.main.name
+    "CosmosDbContainerName"          = azurerm_cosmosdb_sql_container.main.name
+    "APPINSIGHTS_INSTRUMENTATIONKEY" = azurerm_application_insights.main.instrumentation_key
+  }
+  
+  tags = var.tags
+}
+
+# Application Insights para monitoring
+resource "azurerm_application_insights" "main" {
+  name                = "${var.prefix}-appinsights"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  application_type    = "web"
+  tags                = var.tags
+}
+
+# Importación automática de APIs desde GitHub (Opcional - descomenta para usar)
+# resource "azurerm_api_management_api" "petstore" {
+#   name                = "petstore-api"
+#   resource_group_name = azurerm_resource_group.main.name
+#   api_management_name = azurerm_api_management.main.name
+#   revision            = "1"
+#   display_name        = "Petstore API"
+#   path                = "petstore"
+#   protocols           = ["https"]
+#   
+#   import {
+#     content_format = "openapi-link"
+#     content_value  = "https://raw.githubusercontent.com/ImTronick2025/apis-labs-api/main/petstore-api.yaml"
+#   }
+#   
+#   depends_on = [azurerm_api_management.main]
+# }
+
+# resource "azurerm_api_management_api" "orders" {
+#   name                = "orders-api"
+#   resource_group_name = azurerm_resource_group.main.name
+#   api_management_name = azurerm_api_management.main.name
+#   revision            = "1"
+#   display_name        = "Orders API"
+#   path                = "orders"
+#   protocols           = ["https"]
+#   
+#   import {
+#     content_format = "openapi-link"
+#     content_value  = "https://raw.githubusercontent.com/ImTronick2025/apis-labs-api/main/orders-api.yaml"
+#   }
+#   
+#   depends_on = [azurerm_api_management.main]
+# }
+
+# Backend de APIM apuntando a Azure Functions (Opcional - descomenta para usar)
+# resource "azurerm_api_management_backend" "functions" {
+#   name                = "petstore-backend"
+#   resource_group_name = azurerm_resource_group.main.name
+#   api_management_name = azurerm_api_management.main.name
+#   protocol            = "http"
+#   url                 = "https://${azurerm_windows_function_app.main.default_hostname}/api"
+#   
+#   credentials {
+#     header = {
+#       "x-functions-key" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.function_key.id})"
+#     }
+#   }
+# }
+
+# Policy para redirigir tráfico de APIM a Functions (Opcional)
+# resource "azurerm_api_management_api_policy" "petstore" {
+#   api_name            = azurerm_api_management_api.petstore.name
+#   api_management_name = azurerm_api_management.main.name
+#   resource_group_name = azurerm_resource_group.main.name
+#   
+#   xml_content = <<XML
+# <policies>
+#   <inbound>
+#     <base />
+#     <set-backend-service backend-id="${azurerm_api_management_backend.functions.name}" />
+#     <set-header name="x-functions-key" exists-action="override">
+#       <value>{{function-key}}</value>
+#     </set-header>
+#   </inbound>
+#   <backend>
+#     <base />
+#   </backend>
+#   <outbound>
+#     <base />
+#   </outbound>
+#   <on-error>
+#     <base />
+#   </on-error>
+# </policies>
+# XML
+# }
