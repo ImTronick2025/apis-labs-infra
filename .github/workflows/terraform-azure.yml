@@ -202,6 +202,19 @@ jobs:
         ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
         ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
     
+    - name: Fix Application Insights Configuration
+      if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      run: |
+        echo "🔧 Fixing Application Insights configuration..."
+        # Remove Application Insights from state to allow recreation without workspace_id issue
+        terraform state rm azurerm_application_insights.main 2>/dev/null || echo "Application Insights not in state"
+      continue-on-error: true
+      env:
+        ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+        ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+        ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+    
     - name: Terraform Apply
       if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: terraform apply -var-file="${{ steps.tfvars.outputs.file }}" -auto-approve -input=false
