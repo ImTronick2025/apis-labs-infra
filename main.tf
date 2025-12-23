@@ -26,6 +26,14 @@ provider "azurerm" {
   subscription_id = var.subscription_id
 }
 
+locals {
+  functions_storage_account_name = substr(
+    lower(replace("${var.prefix}func${random_string.suffix.result}", "-", "")),
+    0,
+    24
+  )
+}
+
 # Resource Group
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
@@ -131,6 +139,56 @@ resource "azurerm_application_insights" "main" {
   lifecycle {
     ignore_changes = [workspace_id]
   }
+}
+
+# Storage Account para Azure Functions (requerido por Flex Consumption)
+resource "azurerm_storage_account" "functions" {
+  name                            = local.functions_storage_account_name
+  resource_group_name             = azurerm_resource_group.main.name
+  location                        = azurerm_resource_group.main.location
+  account_tier                    = "Standard"
+  account_replication_type        = "LRS"
+  account_kind                    = "StorageV2"
+  enable_https_traffic_only       = true
+  min_tls_version                 = "TLS1_2"
+  allow_nested_items_to_be_public = false
+  tags                            = var.tags
+}
+
+# Plan Flex Consumption para Azure Functions
+resource "azurerm_service_plan" "functions" {
+  name                = "${var.prefix}-func-plan"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  os_type             = "Linux"
+  sku_name            = "FC1"
+  tags                = var.tags
+}
+
+# Function App (Flex Consumption) para API de catalogo de libros
+resource "azurerm_linux_function_app" "main" {
+  name                        = "${var.prefix}-func-${random_string.suffix.result}"
+  location                    = azurerm_resource_group.main.location
+  resource_group_name         = azurerm_resource_group.main.name
+  service_plan_id             = azurerm_service_plan.functions.id
+  storage_account_name        = azurerm_storage_account.functions.name
+  storage_account_access_key  = azurerm_storage_account.functions.primary_access_key
+  functions_extension_version = "~4"
+  https_only                  = true
+
+  site_config {
+    application_stack {
+      dotnet_version = "8.0"
+    }
+  }
+
+  app_settings = {
+    FUNCTIONS_WORKER_RUNTIME              = "dotnet-isolated"
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
+    CosmosDbConnectionString              = azurerm_cosmosdb_account.main.primary_sql_connection_string
+  }
+
+  tags = var.tags
 }
 
 # Importación automática de APIs desde GitHub (Opcional - descomenta para usar)

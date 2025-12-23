@@ -56,3 +56,18 @@ output "application_insights_connection_string" {
   value       = azurerm_application_insights.main.connection_string
   sensitive   = true
 }
+
+output "function_app_name" {
+  description = "Nombre de la Function App"
+  value       = azurerm_linux_function_app.main.name
+}
+
+output "function_app_url" {
+  description = "URL base de la Function App"
+  value       = "https://${azurerm_linux_function_app.main.default_hostname}"
+}
+
+output "functions_storage_account_name" {
+  description = "Nombre del Storage Account de Functions"
+  value       = azurerm_storage_account.functions.name
+}
