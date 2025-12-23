@@ -108,7 +108,7 @@ jobs:
     
     - name: Terraform Init
       id: init
-      run: terraform init -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
+      run: terraform init -upgrade -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
       env:
         ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
         ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
