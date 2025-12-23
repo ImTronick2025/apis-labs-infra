@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 4.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -175,6 +175,12 @@ resource "azurerm_linux_function_app" "main" {
   storage_account_access_key  = azurerm_storage_account.functions.primary_access_key
   functions_extension_version = "~4"
   https_only                  = true
+
+  site_config {
+    application_stack {
+      dotnet_version = "8.0"
+    }
+  }
 
   function_app_config {
     runtime {
