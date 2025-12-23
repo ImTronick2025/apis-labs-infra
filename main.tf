@@ -166,34 +166,33 @@ resource "azurerm_service_plan" "functions" {
 }
 
 # Function App (Flex Consumption) para API de catalogo de libros
-resource "azurerm_linux_function_app" "main" {
-  name                        = "${var.prefix}-func-${random_string.suffix.result}"
-  location                    = azurerm_resource_group.main.location
-  resource_group_name         = azurerm_resource_group.main.name
-  service_plan_id             = azurerm_service_plan.functions.id
-  storage_account_name        = azurerm_storage_account.functions.name
-  storage_account_access_key  = azurerm_storage_account.functions.primary_access_key
-  functions_extension_version = "~4"
-  https_only                  = true
+resource "azurerm_storage_container" "functions" {
+  name                  = "functions-flex"
+  storage_account_id    = azurerm_storage_account.functions.id
+  container_access_type = "private"
+}
 
-  site_config {
-    application_stack {
-      dotnet_version = "8.0"
-    }
-  }
+resource "azurerm_function_app_flex_consumption" "main" {
+  name                = "${var.prefix}-func-${random_string.suffix.result}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  service_plan_id     = azurerm_service_plan.functions.id
 
-  function_app_config {
-    runtime {
-      name    = "dotnet-isolated"
-      version = "8"
-    }
-  }
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.functions.name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.functions.primary_access_key
+  runtime_name                = "dotnet-isolated"
+  runtime_version             = "8"
+  maximum_instance_count      = 50
+  instance_memory_in_mb       = 2048
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME              = "dotnet-isolated"
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
     CosmosDbConnectionString              = azurerm_cosmosdb_account.main.primary_sql_connection_string
   }
+
+  site_config {}
 
   tags = var.tags
 }

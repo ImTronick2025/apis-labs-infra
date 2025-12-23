@@ -59,12 +59,12 @@ output "application_insights_connection_string" {
 
 output "function_app_name" {
   description = "Nombre de la Function App"
-  value       = azurerm_linux_function_app.main.name
+  value       = azurerm_function_app_flex_consumption.main.name
 }
 
 output "function_app_url" {
   description = "URL base de la Function App"
-  value       = "https://${azurerm_linux_function_app.main.default_hostname}"
+  value       = "https://${azurerm_function_app_flex_consumption.main.default_hostname}"
 }
 
 output "functions_storage_account_name" {
