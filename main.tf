@@ -149,7 +149,7 @@ resource "azurerm_storage_account" "functions" {
   account_tier                    = "Standard"
   account_replication_type        = "LRS"
   account_kind                    = "StorageV2"
-  enable_https_traffic_only       = true
+  https_traffic_only_enabled      = true
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
   tags                            = var.tags
@@ -176,9 +176,10 @@ resource "azurerm_linux_function_app" "main" {
   functions_extension_version = "~4"
   https_only                  = true
 
-  site_config {
-    application_stack {
-      dotnet_version = "8.0"
+  function_app_config {
+    runtime {
+      name    = "dotnet-isolated"
+      version = "8"
     }
   }
 
