@@ -108,7 +108,7 @@ jobs:
     
     - name: Terraform Init
       id: init
-      run: terraform init
+      run: terraform init -backend-config="key=${{ github.event.inputs.environment || 'dev' }}.terraform.tfstate"
       env:
         ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
         ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
@@ -172,42 +172,35 @@ jobs:
     - name: Terraform Plan Status
       if: steps.plan.outcome == 'failure'
       run: exit 1
-    
     - name: Import existing resources (if not in state)
       if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
       run: |
-        echo "🔍 Checking for existing resources not in Terraform state..."
+        echo "INFO Checking for existing resources not in Terraform state..."
+        
+        # Resolve resource group name from the selected tfvars file
+        RG_NAME=$(grep -E '^[[:space:]]*resource_group_name[[:space:]]*=' "${{ steps.tfvars.outputs.file }}" | head -n1 | awk -F= '{print $2}' | tr -d ' "')
+        if [ -z "$RG_NAME" ]; then
+          echo "INFO resource_group_name not found in ${{ steps.tfvars.outputs.file }}"
+          exit 1
+        fi
         
         # Check if resource group exists in Azure
-        if az group exists --name apis-labs-dev-rg | grep -q "true"; then
-          echo "📦 Resource group apis-labs-dev-rg exists in Azure"
+        if az group exists --name "$RG_NAME" | grep -q "true"; then
+          echo "INFO Resource group $RG_NAME exists in Azure"
           
           # Check if it's in Terraform state
           if ! terraform state show azurerm_resource_group.main > /dev/null 2>&1; then
-            echo "⚠️ Resource group NOT in Terraform state, importing..."
+            echo "INFO Resource group NOT in Terraform state, importing..."
             terraform import -var-file="${{ steps.tfvars.outputs.file }}" \
               azurerm_resource_group.main \
-              /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/apis-labs-dev-rg
-            echo "✅ Resource group imported successfully"
+              /subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/$RG_NAME
+            echo "INFO Resource group imported successfully"
           else
-            echo "✅ Resource group already in Terraform state, skipping import"
+            echo "INFO Resource group already in Terraform state, skipping import"
           fi
         else
-          echo "✅ No existing resource group found in Azure"
+          echo "INFO No existing resource group found in Azure"
         fi
-      continue-on-error: true
-      env:
-        ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-        ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
-        ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
-        ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
-    
-    - name: Fix Application Insights Configuration
-      if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      run: |
-        echo "🔧 Fixing Application Insights configuration..."
-        # Remove Application Insights from state to allow recreation without workspace_id issue
-        terraform state rm azurerm_application_insights.main 2>/dev/null || echo "Application Insights not in state"
       continue-on-error: true
       env:
         ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
