@@ -157,7 +157,7 @@ resource "azurerm_key_vault" "main" {
   sku_name            = "standard"
   soft_delete_retention_days = 7
   purge_protection_enabled  = false
-  enable_rbac_authorization = false
+  rbac_authorization_enabled = false
 
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
@@ -279,7 +279,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
 resource "azurerm_key_vault_access_policy" "functions" {
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_function_app_flex_consumption.main.identity.principal_id
+  object_id    = azurerm_function_app_flex_consumption.main.identity[0].principal_id
 
   secret_permissions = [
     "Get"
