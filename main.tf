@@ -10,7 +10,7 @@ terraform {
       version = "~> 3.0"
     }
   }
-  
+
   # Backend remoto opcional para almacenar el estado de Terraform en Azure Storage
   # Descomenta y configura después de crear el Storage Account manualmente
   # backend "azurerm" {
@@ -66,7 +66,7 @@ resource "azurerm_api_management" "main" {
   publisher_name      = var.apim_publisher_name
   publisher_email     = var.apim_publisher_email
   sku_name            = "Consumption_0"
-  
+
   tags = var.tags
 }
 
@@ -77,23 +77,23 @@ resource "azurerm_cosmosdb_account" "main" {
   resource_group_name = azurerm_resource_group.main.name
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
-  
+
   # Serverless capacity mode
   capabilities {
     name = "EnableServerless"
   }
-  
+
   consistency_policy {
     consistency_level       = "Session"
     max_interval_in_seconds = 5
     max_staleness_prefix    = 100
   }
-  
+
   geo_location {
     location          = azurerm_resource_group.main.location
     failover_priority = 0
   }
-  
+
   tags = var.tags
 }
 
