@@ -264,6 +264,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
     CosmosDbConnectionString              = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cosmosdb_connection_string.versionless_id})"
     CosmosDbDatabaseName                  = azurerm_cosmosdb_sql_database.main.name
     CosmosDbContainerName                 = azurerm_cosmosdb_sql_container.main.name
+    KeyVaultUri                           = azurerm_key_vault.main.vault_uri
   }
 
   site_config {}
