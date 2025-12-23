@@ -188,6 +188,31 @@ resource "azurerm_key_vault" "main" {
   tags = var.tags
 }
 
+# Store secrets in Key Vault
+resource "azurerm_key_vault_secret" "cosmosdb_primary_key" {
+  name         = "cosmosdb-primary-key"
+  value        = azurerm_cosmosdb_account.main.primary_key
+  key_vault_id = azurerm_key_vault.main.id
+}
+
+resource "azurerm_key_vault_secret" "cosmosdb_connection_string" {
+  name         = "cosmosdb-connection-string"
+  value        = azurerm_cosmosdb_account.main.primary_sql_connection_string
+  key_vault_id = azurerm_key_vault.main.id
+}
+
+resource "azurerm_key_vault_secret" "appinsights_connection_string" {
+  name         = "appinsights-connection-string"
+  value        = azurerm_application_insights.main.connection_string
+  key_vault_id = azurerm_key_vault.main.id
+}
+
+resource "azurerm_key_vault_secret" "functions_storage_connection_string" {
+  name         = "functions-storage-connection-string"
+  value        = azurerm_storage_account.functions.primary_connection_string
+  key_vault_id = azurerm_key_vault.main.id
+}
+
 # Storage Account para Azure Functions (requerido por Flex Consumption)
 resource "azurerm_storage_account" "functions" {
   name                            = local.functions_storage_account_name
