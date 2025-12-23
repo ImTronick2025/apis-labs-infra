@@ -183,6 +183,13 @@ jobs:
           echo "INFO resource_group_name not found in ${{ steps.tfvars.outputs.file }}"
           exit 1
         fi
+
+        # Resolve prefix from the selected tfvars file (used for naming)
+        PREFIX=$(grep -E '^[[:space:]]*prefix[[:space:]]*=' "${{ steps.tfvars.outputs.file }}" | head -n1 | awk -F= '{print $2}' | tr -d ' "')
+        if [ -z "$PREFIX" ]; then
+          echo "INFO prefix not found in ${{ steps.tfvars.outputs.file }}"
+          exit 1
+        fi
         
         # Check if resource group exists in Azure
         if az group exists --name "$RG_NAME" | grep -q "true"; then
@@ -200,6 +207,24 @@ jobs:
           fi
         else
           echo "INFO No existing resource group found in Azure"
+        fi
+
+        # Import Application Insights if it already exists in Azure
+        APPINSIGHTS_NAME="${PREFIX}-appinsights"
+        APPINSIGHTS_ID="/subscriptions/${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}/resourceGroups/$RG_NAME/providers/Microsoft.Insights/components/$APPINSIGHTS_NAME"
+        if az resource show --ids "$APPINSIGHTS_ID" > /dev/null 2>&1; then
+          echo "INFO Application Insights $APPINSIGHTS_NAME exists in Azure"
+          if ! terraform state show azurerm_application_insights.main > /dev/null 2>&1; then
+            echo "INFO Application Insights NOT in Terraform state, importing..."
+            terraform import -var-file="${{ steps.tfvars.outputs.file }}" \
+              azurerm_application_insights.main \
+              "$APPINSIGHTS_ID"
+            echo "INFO Application Insights imported successfully"
+          else
+            echo "INFO Application Insights already in Terraform state, skipping import"
+          fi
+        else
+          echo "INFO No existing Application Insights found in Azure"
         fi
       continue-on-error: true
       env:
