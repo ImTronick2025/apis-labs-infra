@@ -34,6 +34,18 @@ variable "apim_publisher_email" {
   default     = "admin@apislabs.com"
 }
 
+variable "key_vault_admin_object_id" {
+  description = "Object ID con permisos admin en Key Vault (si se omite, se usa el principal actual)"
+  type        = string
+  default     = ""
+}
+
+variable "key_vault_operator_object_ids" {
+  description = "Object IDs con permisos de lectura de secretos en Key Vault"
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags comunes para todos los recursos"
   type        = map(string)

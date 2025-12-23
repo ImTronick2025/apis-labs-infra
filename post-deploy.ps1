@@ -19,6 +19,9 @@ try {
     $functionApp = terraform output -raw function_app_name
     $cosmosName = terraform output -raw cosmosdb_name
     $cosmosEndpoint = terraform output -raw cosmosdb_endpoint
+    if ([string]::IsNullOrWhiteSpace($ResourceGroup) -or $ResourceGroup -eq "apis-labs-rg") {
+        $ResourceGroup = terraform output -raw resource_group_name
+    }
 } catch {
     Write-Host "❌ Error obteniendo outputs de Terraform" -ForegroundColor Red
     Write-Host "   Asegúrate de haber ejecutado 'terraform apply' primero" -ForegroundColor Yellow
@@ -38,8 +41,11 @@ $subscriptionKey = az apim subscription list-secrets `
     --subscription-id master `
     --query primaryKey -o tsv
 
-if ($subscriptionKey) {
-    Write-Host "   ✓ Subscription Key obtenida" -ForegroundColor Green
+if ($functionKey) {
+    Write-Host "# Listar libros (Function App):" -ForegroundColor Gray
+    Write-Host "curl https://$functionApp.azurewebsites.net/api/books \\" -ForegroundColor Cyan
+    Write-Host "  -H 'x-functions-key: $functionKey'" -ForegroundColor Cyan
+    Write-Host ""
 } else {
     Write-Host "   ⚠️  No se pudo obtener Subscription Key" -ForegroundColor Yellow
 }
@@ -50,7 +56,7 @@ Write-Host "🔑 Obteniendo Function App Key..." -ForegroundColor Cyan
 $functionKey = az functionapp keys list `
     --name $functionApp `
     --resource-group $ResourceGroup `
-    --query masterKey -o tsv
+    --query "functionKeys.default" -o tsv
 
 if ($functionKey) {
     Write-Host "   ✓ Function Key obtenida" -ForegroundColor Green
@@ -72,8 +78,11 @@ Write-Host "   Cosmos DB:        $cosmosEndpoint" -ForegroundColor White
 Write-Host ""
 
 Write-Host "🔐 CREDENCIALES:" -ForegroundColor Yellow
-if ($subscriptionKey) {
-    Write-Host "   APIM Subscription Key: $subscriptionKey" -ForegroundColor White
+if ($functionKey) {
+    Write-Host "# Listar libros (Function App):" -ForegroundColor Gray
+    Write-Host "curl https://$functionApp.azurewebsites.net/api/books \\" -ForegroundColor Cyan
+    Write-Host "  -H 'x-functions-key: $functionKey'" -ForegroundColor Cyan
+    Write-Host ""
 }
 if ($functionKey) {
     Write-Host "   Function Master Key:   $functionKey" -ForegroundColor White
@@ -86,10 +95,10 @@ Write-Host "# Health check de Functions:" -ForegroundColor Gray
 Write-Host "curl https://$functionApp.azurewebsites.net/api/health" -ForegroundColor Cyan
 Write-Host ""
 
-if ($subscriptionKey) {
-    Write-Host "# Llamada a través de APIM (después de importar APIs):" -ForegroundColor Gray
-    Write-Host "curl $apimUrl/petstore/health \\" -ForegroundColor Cyan
-    Write-Host "  -H 'Ocp-Apim-Subscription-Key: $subscriptionKey'" -ForegroundColor Cyan
+if ($functionKey) {
+    Write-Host "# Listar libros (Function App):" -ForegroundColor Gray
+    Write-Host "curl https://$functionApp.azurewebsites.net/api/books \\" -ForegroundColor Cyan
+    Write-Host "  -H 'x-functions-key: $functionKey'" -ForegroundColor Cyan
     Write-Host ""
 }
 

@@ -8,6 +8,8 @@
 # prefix                = "apislabs"
 # apim_publisher_name   = "APIs Labs Organization"
 # apim_publisher_email  = "tu-email@example.com"
+# key_vault_admin_object_id = "<object-id-admin>"
+# key_vault_operator_object_ids = ["<object-id-operator>"]
 
 # tags = {
 #   Environment = "Lab"

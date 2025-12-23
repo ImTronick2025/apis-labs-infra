@@ -7,6 +7,8 @@ location             = "East US"
 prefix               = "apislabsprd"
 apim_publisher_name  = "APIs Labs Production"
 apim_publisher_email = "admin@apislabs.com"
+key_vault_admin_object_id = "<object-id-admin>"
+key_vault_operator_object_ids = []
 
 tags = {
   Environment = "Production"

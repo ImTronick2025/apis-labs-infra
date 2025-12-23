@@ -7,6 +7,8 @@ location             = "East US"
 prefix               = "apislabsdev"
 apim_publisher_name  = "APIs Labs Dev"
 apim_publisher_email = "dev@apislabs.com"
+key_vault_admin_object_id = "2d243312-e8d2-4926-bdb9-c6370fdd3a2f"
+key_vault_operator_object_ids = ["694abb35-aa44-4c3e-8e6e-77ac94e51fa3"]
 
 tags = {
   Environment = "Development"

@@ -39,6 +39,7 @@ locals {
     0,
     24
   )
+  key_vault_admin_object_id = var.key_vault_admin_object_id != "" ? var.key_vault_admin_object_id : data.azurerm_client_config.current.object_id
   function_principal_id = try(azurerm_function_app_flex_consumption.main.identity[0].principal_id, null)
 }
 
@@ -122,7 +123,7 @@ resource "azurerm_cosmosdb_sql_database" "main" {
 
 # Cosmos DB SQL Container
 resource "azurerm_cosmosdb_sql_container" "main" {
-  name                = "items"
+  name                = "books"
   resource_group_name = azurerm_cosmosdb_account.main.resource_group_name
   account_name        = azurerm_cosmosdb_account.main.name
   database_name       = azurerm_cosmosdb_sql_database.main.name
@@ -162,7 +163,7 @@ resource "azurerm_key_vault" "main" {
 
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
+    object_id = local.key_vault_admin_object_id
 
     key_permissions = [
       "Get",
@@ -261,6 +262,7 @@ resource "azurerm_function_app_flex_consumption" "main" {
   instance_memory_in_mb       = 2048
 
   app_settings = {
+    AzureWebJobsStorage                 = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.functions_storage_connection_string.versionless_id})"
     APPLICATIONINSIGHTS_CONNECTION_STRING = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.appinsights_connection_string.versionless_id})"
     CosmosDbConnectionString              = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cosmosdb_connection_string.versionless_id})"
     CosmosDbDatabaseName                  = azurerm_cosmosdb_sql_database.main.name
@@ -278,14 +280,26 @@ resource "azurerm_function_app_flex_consumption" "main" {
 }
 
 resource "azurerm_key_vault_access_policy" "functions" {
-  # Wait until the Function App identity exists before creating the policy.
-  count        = local.function_principal_id == null ? 0 : 1
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = local.function_principal_id
+  object_id    = azurerm_function_app_flex_consumption.main.identity[0].principal_id
 
   secret_permissions = [
     "Get"
+  ]
+
+  depends_on = [azurerm_function_app_flex_consumption.main]
+}
+
+resource "azurerm_key_vault_access_policy" "operators" {
+  for_each    = toset(var.key_vault_operator_object_ids)
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = each.value
+
+  secret_permissions = [
+    "Get",
+    "List"
   ]
 }
 
