@@ -39,6 +39,7 @@ locals {
     0,
     24
   )
+  function_principal_id = try(azurerm_function_app_flex_consumption.main.identity[0].principal_id, null)
 }
 
 # Resource Group
@@ -277,9 +278,11 @@ resource "azurerm_function_app_flex_consumption" "main" {
 }
 
 resource "azurerm_key_vault_access_policy" "functions" {
+  # Wait until the Function App identity exists before creating the policy.
+  count        = local.function_principal_id == null ? 0 : 1
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_function_app_flex_consumption.main.identity[0].principal_id
+  object_id    = local.function_principal_id
 
   secret_permissions = [
     "Get"
