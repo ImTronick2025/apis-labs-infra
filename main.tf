@@ -260,13 +260,29 @@ resource "azurerm_function_app_flex_consumption" "main" {
   instance_memory_in_mb       = 2048
 
   app_settings = {
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
-    CosmosDbConnectionString              = azurerm_cosmosdb_account.main.primary_sql_connection_string
+    APPLICATIONINSIGHTS_CONNECTION_STRING = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.appinsights_connection_string.versionless_id})"
+    CosmosDbConnectionString              = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.cosmosdb_connection_string.versionless_id})"
+    CosmosDbDatabaseName                  = azurerm_cosmosdb_sql_database.main.name
+    CosmosDbContainerName                 = azurerm_cosmosdb_sql_container.main.name
   }
 
   site_config {}
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   tags = var.tags
+}
+
+resource "azurerm_key_vault_access_policy" "functions" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_function_app_flex_consumption.main.identity[0].principal_id
+
+  secret_permissions = [
+    "Get"
+  ]
 }
 
 # Importación automática de APIs desde GitHub (Opcional - descomenta para usar)
